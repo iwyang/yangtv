@@ -9,7 +9,7 @@ export const CURRENT_VERSION = CURRENT_SEMANTIC_VERSION;
 
 // 硬编码的构建时间戳（每次发布时更新）
 // 这是最后的回退值，确保即使所有文件读取都失败也能有一个基准
-export const BUILD_TIMESTAMP = '20991231235959';
+export const BUILD_TIMESTAMP = '20251215235531';
 
 const DEFAULT_UPDATE_REPO = 'Decohererk/DecoTV';
 const UPDATE_REPO = process.env.NEXT_PUBLIC_UPDATE_REPO || DEFAULT_UPDATE_REPO;
@@ -109,16 +109,18 @@ export function parseVersionTimestamp(timestamp: string): Date | null {
 
 /**
  * 比较两个版本时间戳
- * @param current 当前版本时间戳
- * @param remote 远程版本时间戳
- * @returns 1: 当前版本更新, 0: 版本相同, -1: 远程版本更新
+ * 修改后：屏蔽远程更新判断
  */
 export function compareVersions(current: string, remote: string): number {
   const currentNum = parseInt(current);
   const remoteNum = parseInt(remote);
 
   if (currentNum > remoteNum) return 1;
-  if (currentNum < remoteNum) return -1;
+
+  // 原逻辑: if (currentNum < remoteNum) return -1;
+  // 修改后: 强制返回 0
+  if (currentNum < remoteNum) return 0;
+
   return 0;
 }
 
