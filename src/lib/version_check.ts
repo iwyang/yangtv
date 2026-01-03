@@ -75,18 +75,15 @@ function isValidTimestamp(timestamp: string): boolean {
 
 /**
  * 比较版本时间戳
- * 修改后：即使远程时间戳更大，也返回 0，确保不触发更新提醒
+ * @returns 正数: 本地更新, 0: 相同, 负数: 远程更新（有新版本）
  */
 function compareTimestamps(local: string, remote: string): number {
+  // 使用 BigInt 精确比较 14 位数字
   const localNum = BigInt(local);
   const remoteNum = BigInt(remote);
 
   if (localNum > remoteNum) return 1;
-  
-  // 原逻辑: if (localNum < remoteNum) return -1;
-  // 修改后: 强制返回 0，判定为“已是最新”
-  if (localNum < remoteNum) return 0; 
-  
+  if (localNum < remoteNum) return -1;
   return 0;
 }
 
