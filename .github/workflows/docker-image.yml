@@ -69,7 +69,7 @@ jobs:
         uses: docker/metadata-action@v4
 
         with:
-          images: ghcr.io/${{ steps.lowercase.outputs.owner }}/decotv
+          images: ghcr.io/${{ steps.lowercase.outputs.owner }}/yangtv
           tags: |
             type=raw,value=${{ github.event.inputs.tag || 'latest' }},enable={{is_default_branch}}
             type=raw,value=${{ steps.version.outputs.version }},enable={{is_default_branch}}
@@ -83,9 +83,9 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: |
-            ghcr.io/${{ steps.lowercase.outputs.owner }}/decotv:${{ github.event.inputs.tag || 'latest' }}
-            ghcr.io/${{ steps.lowercase.outputs.owner }}/decotv:${{ steps.version.outputs.version }}
-          outputs: type=image,name=ghcr.io/${{ steps.lowercase.outputs.owner }}/decotv,name-canonical=true,push=true
+            ghcr.io/${{ steps.lowercase.outputs.owner }}/yangtv:${{ github.event.inputs.tag || 'latest' }}
+            ghcr.io/${{ steps.lowercase.outputs.owner }}/yangtv:${{ steps.version.outputs.version }}
+          outputs: type=image,name=ghcr.io/${{ steps.lowercase.outputs.owner }}/yangtv,name-canonical=true,push=true
 
       - name: Export digest
         run: |
@@ -144,10 +144,10 @@ jobs:
       - name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
-          docker buildx imagetools create -t ghcr.io/${{ steps.lowercase.outputs.owner }}/decotv:${{ github.event.inputs.tag || 'latest' }} \
-            $(printf 'ghcr.io/${{ steps.lowercase.outputs.owner }}/decotv@sha256:%s ' *)
-          docker buildx imagetools create -t ghcr.io/${{ steps.lowercase.outputs.owner }}/decotv:${{ steps.version.outputs.version }} \
-            $(printf 'ghcr.io/${{ steps.lowercase.outputs.owner }}/decotv@sha256:%s ' *)
+          docker buildx imagetools create -t ghcr.io/${{ steps.lowercase.outputs.owner }}/yangtv:${{ github.event.inputs.tag || 'latest' }} \
+            $(printf 'ghcr.io/${{ steps.lowercase.outputs.owner }}/yangtv@sha256:%s ' *)
+          docker buildx imagetools create -t ghcr.io/${{ steps.lowercase.outputs.owner }}/yangtv:${{ steps.version.outputs.version }} \
+            $(printf 'ghcr.io/${{ steps.lowercase.outputs.owner }}/yangtv@sha256:%s ' *)
 
   cleanup-refresh:
     runs-on: ubuntu-latest
