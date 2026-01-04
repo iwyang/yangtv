@@ -44,7 +44,6 @@ export const blacklistedWords: string[] = [
   '伦理',
   '日本伦理',
   // 新加入 
-  '赌博',
   '博彩',
   '赌场',
   '彩票',
