@@ -34,7 +34,14 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // 根据内容类型获取对应的类型选项
+  // 根据 contentType 设置默认排序：所有页面默认 'U'（近期热度）
+  useEffect(() => {
+    setValues((prev) => ({
+      ...prev,
+      sort: prev.sort ?? 'U',
+    }));
+  }, [contentType]);
+
   const getTypeOptions = (
     contentType: 'movie' | 'tv' | 'show' | 'anime-tv' | 'anime-movie'
   ) => {
@@ -105,7 +112,6 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
     }
   };
 
-  // 根据内容类型获取对应的地区选项
   const getRegionOptions = (
     contentType: 'movie' | 'tv' | 'show' | 'anime-tv' | 'anime-movie'
   ) => {
@@ -228,7 +234,6 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
     }
   };
 
-  // 根据内容类型获取对应的平台选项
   const getPlatformOptions = (
     contentType: 'movie' | 'tv' | 'show' | 'anime-tv' | 'anime-movie'
   ) => {
@@ -236,7 +241,7 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
 
     switch (contentType) {
       case 'movie':
-        return baseOptions; // 电影不需要平台选项
+        return baseOptions;
       case 'tv':
       case 'anime-tv':
       case 'show':
@@ -259,23 +264,22 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
     }
   };
 
-  // 分类配置
   const categories: MultiLevelCategory[] = [
     ...(contentType !== 'anime-tv' && contentType !== 'anime-movie'
       ? [
-        {
-          key: 'type',
-          label: '类型',
-          options: getTypeOptions(contentType),
-        },
-      ]
+          {
+            key: 'type',
+            label: '类型',
+            options: getTypeOptions(contentType),
+          },
+        ]
       : [
-        {
-          key: 'label',
-          label: '类型',
-          options: getLabelOptions(contentType),
-        },
-      ]),
+          {
+            key: 'label',
+            label: '类型',
+            options: getLabelOptions(contentType),
+          },
+        ]),
     {
       key: 'region',
       label: '地区',
@@ -303,17 +307,14 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
         { label: '更早', value: 'earlier' },
       ],
     },
-    // 只在电视剧和综艺时显示平台选项
-    ...(contentType === 'tv' ||
-      contentType === 'show' ||
-      contentType === 'anime-tv'
+    ...(contentType === 'tv' || contentType === 'show' || contentType === 'anime-tv'
       ? [
-        {
-          key: 'platform',
-          label: '平台',
-          options: getPlatformOptions(contentType),
-        },
-      ]
+          {
+            key: 'platform',
+            label: '平台',
+            options: getPlatformOptions(contentType),
+          },
+        ]
       : []),
     {
       key: 'sort',
@@ -333,31 +334,27 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
     },
   ];
 
-  // 计算下拉框位置
   const calculateDropdownPosition = (categoryKey: string) => {
     const element = categoryRefs.current[categoryKey];
     if (element) {
       const rect = element.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
-      const isMobile = viewportWidth < 768; // md breakpoint
+      const isMobile = viewportWidth < 768;
 
       let x = rect.left;
       let dropdownWidth = Math.max(rect.width, 300);
-      let useFixedWidth = false; // 标记是否使用固定宽度
+      let useFixedWidth = false;
 
-      // 移动端优化：防止下拉框被右侧视口截断
       if (isMobile) {
-        const padding = 16; // 左右各留16px的边距
+        const padding = 16;
         const maxWidth = viewportWidth - padding * 2;
         dropdownWidth = Math.min(dropdownWidth, maxWidth);
-        useFixedWidth = true; // 移动端使用固定宽度
+        useFixedWidth = true;
 
-        // 如果右侧超出视口，则调整x位置
         if (x + dropdownWidth > viewportWidth - padding) {
           x = viewportWidth - dropdownWidth - padding;
         }
 
-        // 如果左侧超出视口，则贴左边
         if (x < padding) {
           x = padding;
         }
@@ -366,12 +363,11 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
       setDropdownPosition({
         x,
         y: rect.bottom,
-        width: useFixedWidth ? dropdownWidth : rect.width, // PC端保持原有逻辑
+        width: useFixedWidth ? dropdownWidth : rect.width,
       });
     }
   };
 
-  // 处理分类点击
   const handleCategoryClick = (categoryKey: string) => {
     if (activeCategory === categoryKey) {
       setActiveCategory(null);
@@ -381,18 +377,14 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
     }
   };
 
-  // 处理选项选择
   const handleOptionSelect = (categoryKey: string, optionValue: string) => {
-    // 更新本地状态
     const newValues = {
       ...values,
       [categoryKey]: optionValue,
     };
 
-    // 更新内部状态
     setValues(newValues);
 
-    // 构建传递给父组件的值，排序传递 value，其他传递 label
     const selectionsForParent: Record<string, string> = {
       type: 'all',
       region: 'all',
@@ -408,7 +400,6 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
         if (category) {
           const option = category.options.find((opt) => opt.value === value);
           if (option) {
-            // 排序传递 value，其他传递 label
             selectionsForParent[key] =
               key === 'sort' ? option.value : option.label;
           }
@@ -416,54 +407,53 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
       }
     });
 
-    // 调用父组件的回调，传递处理后的选择值
     onChange(selectionsForParent);
-
     setActiveCategory(null);
   };
 
-  // 获取显示文本
+  // 显示文本：当前是“综合排序”时显示“排序”，其他显示具体名称
   const getDisplayText = (categoryKey: string) => {
     const category = categories.find((cat) => cat.key === categoryKey);
     if (!category) return '';
 
-    const value = values[categoryKey];
+    if (categoryKey === 'sort') {
+      const currentSort = values.sort ?? 'U';
+      if (currentSort === 'T') {
+        return '排序';
+      }
+      const option = category.options.find((opt) => opt.value === currentSort);
+      return option?.label || '排序';
+    }
 
-    if (
-      !value ||
-      value === 'all' ||
-      (categoryKey === 'sort' && value === 'T')
-    ) {
+    const value = values[categoryKey];
+    if (!value || value === 'all') {
       return category.label;
     }
     const option = category.options.find((opt) => opt.value === value);
     return option?.label || category.label;
   };
 
-  // 检查是否为默认值
+  // 是否默认状态：当前是“综合排序”时灰色，其他绿色
   const isDefaultValue = (categoryKey: string) => {
+    if (categoryKey === 'sort') {
+      const currentSort = values.sort ?? 'U';
+      return currentSort === 'T';
+    }
     const value = values[categoryKey];
-    return (
-      !value || value === 'all' || (categoryKey === 'sort' && value === 'T')
-    );
+    return !value || value === 'all';
   };
 
-  // 检查选项是否被选中
+  // 选项选中判断（关键修复：默认高亮 'U'）
   const isOptionSelected = (categoryKey: string, optionValue: string) => {
     let value = values[categoryKey];
     if (value === undefined) {
-      value = 'all';
-      if (categoryKey === 'sort') {
-        value = 'T';
-      }
+      value = 'U'; // 所有页面默认高亮“近期热度”
     }
     return value === optionValue;
   };
 
-  // 监听滚动和窗口大小变化事件
   useEffect(() => {
     const handleScroll = () => {
-      // 滚动时直接关闭面板，而不是重新计算位置
       if (activeCategory) {
         setActiveCategory(null);
       }
@@ -475,7 +465,6 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
       }
     };
 
-    // 监听 body 滚动事件，因为该项目的滚动容器是 document.body
     document.body.addEventListener('scroll', handleScroll, { passive: true });
     window.addEventListener('resize', handleResize);
     return () => {
@@ -484,7 +473,6 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
     };
   }, [activeCategory]);
 
-  // 点击外部关闭下拉框
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -504,7 +492,6 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
 
   return (
     <>
-      {/* 胶囊样式筛选栏 */}
       <div className='relative inline-flex rounded-full p-0.5 sm:p-1 bg-transparent gap-1 sm:gap-2'>
         {categories.map((category) => (
           <div
@@ -516,19 +503,21 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
           >
             <button
               onClick={() => handleCategoryClick(category.key)}
-              className={`relative z-10 px-1.5 py-0.5 sm:px-2 sm:py-1 md:px-4 md:py-2 text-xs sm:text-sm font-medium rounded-full transition-all duration-200 whitespace-nowrap ${activeCategory === category.key
+              className={`relative z-10 px-1.5 py-0.5 sm:px-2 sm:py-1 md:px-4 md:py-2 text-xs sm:text-sm font-medium rounded-full transition-all duration-200 whitespace-nowrap ${
+                activeCategory === category.key
                   ? isDefaultValue(category.key)
                     ? 'text-gray-900 dark:text-gray-100 cursor-default'
                     : 'text-green-600 dark:text-green-400 cursor-default'
                   : isDefaultValue(category.key)
-                    ? 'text-gray-700 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 cursor-pointer'
-                    : 'text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 cursor-pointer'
-                }`}
+                  ? 'text-gray-700 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 cursor-pointer'
+                  : 'text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 cursor-pointer'
+              }`}
             >
               <span>{getDisplayText(category.key)}</span>
               <svg
-                className={`inline-block w-2.5 h-2.5 sm:w-3 sm:h-3 ml-0.5 sm:ml-1 transition-transform duration-200 ${activeCategory === category.key ? 'rotate-180' : ''
-                  }`}
+                className={`inline-block w-2.5 h-2.5 sm:w-3 sm:h-3 ml-0.5 sm:ml-1 transition-transform duration-200 ${
+                  activeCategory === category.key ? 'rotate-180' : ''
+                }`}
                 fill='none'
                 stroke='currentColor'
                 viewBox='0 0 24 24'
@@ -545,7 +534,6 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
         ))}
       </div>
 
-      {/* 展开的筛选选项 - 悬浮显示 */}
       {activeCategory &&
         createPortal(
           <div
@@ -555,8 +543,8 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
               left: `${dropdownPosition.x}px`,
               top: `${dropdownPosition.y}px`,
               ...(window.innerWidth < 768
-                ? { width: `${dropdownPosition.width}px` } // 移动端使用固定宽度
-                : { minWidth: `${Math.max(dropdownPosition.width, 300)}px` }), // PC端使用最小宽度
+                ? { width: `${dropdownPosition.width}px` }
+                : { minWidth: `${Math.max(dropdownPosition.width, 300)}px` }),
               maxWidth: '600px',
               position: 'fixed',
             }}
@@ -571,10 +559,11 @@ const MultiLevelSelector: React.FC<MultiLevelSelectorProps> = ({
                       onClick={() =>
                         handleOptionSelect(activeCategory, option.value)
                       }
-                      className={`px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm rounded-lg transition-all duration-200 text-left ${isOptionSelected(activeCategory, option.value)
+                      className={`px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm rounded-lg transition-all duration-200 text-left ${
+                        isOptionSelected(activeCategory, option.value)
                           ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-700'
                           : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-700/80'
-                        }`}
+                      }`}
                     >
                       {option.label}
                     </button>
