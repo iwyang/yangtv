@@ -737,8 +737,9 @@ function PlayPageClient() {
         // 处理搜索结果，根据规则过滤
         const results = data.results.filter(
           (result: SearchResult) =>
-            result.title.replaceAll(' ', '').toLowerCase() ===
-              videoTitleRef.current.replaceAll(' ', '').toLowerCase() &&
+            result.title.replaceAll(' ', '').toLowerCase().includes(
+              videoTitleRef.current.replaceAll(' ', '').toLowerCase()
+			) &&  
             (videoYearRef.current
               ? result.year.toLowerCase() === videoYearRef.current.toLowerCase()
               : true) &&
