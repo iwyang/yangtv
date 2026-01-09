@@ -1,19 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-/**
- * 全局违禁关键词列表
- *
- * 当用户搜索关键词包含以下任意词（不区分大小写）时，
- * 所有搜索相关接口（主搜索、单源搜索、建议、流式搜索）将直接返回空结果，
- * 不进行任何真实搜索。
- *
- * 使用方式：在需要的地方导入：
- * import { blacklistedWords } from '@/lib/filter';
- *
- * 请在此处添加需要屏蔽的关键词
- */
-
-export const blacklistedWords: string[] = [
+// New file: filter.ts
+export const bannedWords: string[] = [
   '伦理片',
   '福利',
   '里番动漫',
@@ -44,6 +30,7 @@ export const blacklistedWords: string[] = [
   '伦理',
   '日本伦理',
   // 新加入 
+  '预告片',    
   '罪恶之渊',  
   // 可继续添加更多隐晦代称
 ];

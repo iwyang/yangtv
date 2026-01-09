@@ -1,6 +1,5 @@
+// Modified file: route.ts
 /* eslint-disable @typescript-eslint/no-explicit-any,no-console */
-
-/* 修改说明：本文件已移除本地 blacklistedWords 定义，转而导入 '@/lib/filter' 中的统一违禁词列表 */
 
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -10,7 +9,7 @@ import { getAvailableApiSites, getCacheTime, getConfig } from '@/lib/config';
 import { searchFromApi } from '@/lib/downstream';
 import { rankSearchResults } from '@/lib/search-ranking';
 import { yellowWords } from '@/lib/yellow';
-import { blacklistedWords } from '@/lib/filter'; // 新增导入
+import { bannedWords } from '@/lib/filter'; // 新增导入
 
 export const runtime = 'nodejs';
 
@@ -38,8 +37,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // 违禁词检查：包含任意违禁词直接返回空结果
-  if (blacklistedWords.some(word => query.toLowerCase().includes(word.toLowerCase()))) {
+  // 新增: 检查查询是否包含违禁词
+  if (bannedWords.some((word: string) => query.toLowerCase().includes(word.toLowerCase()))) {
     return NextResponse.json({ results: [] }, { status: 200 });
   }
 
@@ -47,21 +46,24 @@ export async function GET(request: NextRequest) {
   const apiSites = await getAvailableApiSites(authInfo.username);
 
   // 🔒 成人内容过滤逻辑
-  const adultParam = searchParams.get('adult');
-  const filterParam = searchParams.get('filter');
+  // URL 参数优先级: ?adult=1 (显示成人) > ?filter=off (显示成人) > 全局配置
+  const adultParam = searchParams.get('adult'); // OrionTV 风格参数
+  const filterParam = searchParams.get('filter'); // TVBox 风格参数
 
-  let shouldFilterAdult = !config.SiteConfig.DisableYellowFilter;
+  let shouldFilterAdult = !config.SiteConfig.DisableYellowFilter; // 默认使用全局配置
 
+  // URL 参数覆盖全局配置
   if (adultParam === '1' || adultParam === 'true') {
-    shouldFilterAdult = false;
+    shouldFilterAdult = false; // 显式启用成人内容
   } else if (adultParam === '0' || adultParam === 'false') {
-    shouldFilterAdult = true;
+    shouldFilterAdult = true; // 显式禁用成人内容
   } else if (filterParam === 'off' || filterParam === 'disable') {
-    shouldFilterAdult = false;
+    shouldFilterAdult = false; // 禁用过滤 = 显示成人内容
   } else if (filterParam === 'on' || filterParam === 'enable') {
-    shouldFilterAdult = true;
+    shouldFilterAdult = true; // 启用过滤 = 隐藏成人内容
   }
 
+  // 将搜索关键词规范化为简体中文，提升繁体用户搜索体验
   let normalizedQuery = query;
   try {
     if (query) {
@@ -72,11 +74,14 @@ export async function GET(request: NextRequest) {
     normalizedQuery = query;
   }
 
+  // 准备搜索关键词列表：如果转换后的关键词与原词不同，则同时搜索两者
   const searchQueries = [normalizedQuery];
   if (query && normalizedQuery !== query) {
     searchQueries.push(query);
   }
 
+  // 添加超时控制和错误处理，避免慢接口拖累整体响应
+  // 对每个站点，尝试搜索所有关键词
   const searchPromises = apiSites.flatMap((site) =>
     searchQueries.map((q) =>
       Promise.race([
@@ -86,7 +91,7 @@ export async function GET(request: NextRequest) {
         ),
       ]).catch((err) => {
         console.warn(`搜索失败 ${site.name} (query: ${q}):`, err.message);
-        return [];
+        return []; // 返回空数组而不是抛出错误
       })
     )
   );
@@ -98,6 +103,7 @@ export async function GET(request: NextRequest) {
       .map((result) => (result as PromiseFulfilledResult<any>).value);
     let flattenedResults = successResults.flat();
 
+    // 去重：根据 source 和 id 去重
     const uniqueResultsMap = new Map<string, any>();
     flattenedResults.forEach((item) => {
       const key = `${item.source}|${item.id}`;
@@ -107,18 +113,33 @@ export async function GET(request: NextRequest) {
     });
     flattenedResults = Array.from(uniqueResultsMap.values());
 
+    // 新增: 过滤结果中的违禁词
+    flattenedResults = flattenedResults.filter((result) => {
+      const title = result.title || '';
+      const typeName = result.type_name || '';
+      return !bannedWords.some((word: string) => title.includes(word) || typeName.includes(word));
+    });
+
+    // 🔒 成人内容过滤逻辑
+    // shouldFilterAdult=true 表示启用过滤(过滤成人内容)
+    // shouldFilterAdult=false 表示禁用过滤(显示所有内容)
     if (shouldFilterAdult) {
       flattenedResults = flattenedResults.filter((result) => {
         const typeName = result.type_name || '';
         const sourceKey = result.source_key || '';
+
+        // 检查视频源是否标记为成人资源
         const source = apiSites.find((s) => s.key === sourceKey);
         if (source && source.is_adult) {
-          return false;
+          return false; // 过滤掉标记为成人资源的源
         }
+
+        // 检查分类名称是否包含敏感关键词
         return !yellowWords.some((word: string) => typeName.includes(word));
       });
     }
 
+    // 🎯 智能排序：按相关性对搜索结果排序（使用规范化关键词）
     flattenedResults = rankSearchResults(
       flattenedResults,
       normalizedQuery || query
@@ -127,6 +148,7 @@ export async function GET(request: NextRequest) {
     const cacheTime = await getCacheTime();
 
     if (flattenedResults.length === 0) {
+      // no cache if empty
       return NextResponse.json({ results: [] }, { status: 200 });
     }
 
@@ -138,7 +160,7 @@ export async function GET(request: NextRequest) {
           'CDN-Cache-Control': `public, s-maxage=${cacheTime}`,
           'Vercel-CDN-Cache-Control': `public, s-maxage=${cacheTime}`,
           'Netlify-Vary': 'query',
-          'X-Adult-Filter': shouldFilterAdult ? 'enabled' : 'disabled',
+          'X-Adult-Filter': shouldFilterAdult ? 'enabled' : 'disabled', // 调试信息
         },
       }
     );

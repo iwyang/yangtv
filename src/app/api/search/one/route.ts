@@ -1,5 +1,4 @@
-/* 修改说明：本文件已移除本地 blacklistedWords 定义，转而导入 '@/lib/filter' 中的统一违禁词列表 */
-
+// Modified file: one.route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
 import { resolveAdultFilter } from '@/lib/adult-filter';
@@ -7,10 +6,11 @@ import { getAuthInfoFromCookie } from '@/lib/auth';
 import { getAvailableApiSites, getCacheTime, getConfig } from '@/lib/config';
 import { searchFromApi } from '@/lib/downstream';
 import { yellowWords } from '@/lib/yellow';
-import { blacklistedWords } from '@/lib/filter'; // 新增导入
+import { bannedWords } from '@/lib/filter'; // 新增导入
 
 export const runtime = 'nodejs';
 
+// OrionTV 兼容接口
 export async function GET(request: NextRequest) {
   const authInfo = getAuthInfoFromCookie(request);
   if (!authInfo || !authInfo.username) {
@@ -36,9 +36,18 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // 违禁词检查
-  if (blacklistedWords.some(word => query.toLowerCase().includes(word.toLowerCase()))) {
-    return NextResponse.json({ results: [] }, { status: 200 });
+  // 新增: 检查查询是否包含违禁词
+  if (bannedWords.some((word: string) => query.toLowerCase().includes(word.toLowerCase()))) {
+    return NextResponse.json(
+      { results: [] },
+      {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Cookie',
+        },
+      }
+    );
   }
 
   const config = await getConfig();
@@ -54,6 +63,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // 根据 resourceId 查找对应的 API 站点
     const targetSite = apiSites.find((site) => site.key === resourceId);
     if (!targetSite) {
       return NextResponse.json(
@@ -76,6 +86,13 @@ export async function GET(request: NextRequest) {
     const results = await searchFromApi(targetSite, query);
     let result = results.filter((r) => r.title === query);
 
+    // 新增: 过滤结果中的违禁词
+    result = result.filter((r) => {
+      const title = r.title || '';
+      const typeName = r.type_name || '';
+      return !bannedWords.some((word: string) => title.includes(word) || typeName.includes(word));
+    });
+
     if (shouldFilterAdult) {
       result = result.filter((r) => {
         const typeName = r.type_name || '';
@@ -85,7 +102,6 @@ export async function GET(request: NextRequest) {
         return !yellowWords.some((word: string) => typeName.includes(word));
       });
     }
-
     const cacheTime = await getCacheTime();
 
     if (result.length === 0) {
@@ -140,6 +156,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// CORS 预检请求
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,

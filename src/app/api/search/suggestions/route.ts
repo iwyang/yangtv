@@ -1,6 +1,5 @@
+// Modified file: suggestions.route.ts
 /* eslint-disable @typescript-eslint/no-explicit-any,no-console */
-
-/* 修改说明：本文件已移除本地 blacklistedWords 定义，转而导入 '@/lib/filter' 中的统一违禁词列表 */
 
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -10,13 +9,14 @@ import { toSimplified } from '@/lib/chinese';
 import { getAvailableApiSites, getConfig } from '@/lib/config';
 import { searchFromApi } from '@/lib/downstream';
 import { yellowWords } from '@/lib/yellow';
-import { blacklistedWords } from '@/lib/filter'; // 新增导入
+import { bannedWords } from '@/lib/filter'; // 新增导入
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'; // 强制动态渲染，避免构建时静态生成报错
 
 export async function GET(request: NextRequest) {
   try {
+    // 从 cookie 获取用户信息
     const authInfo = getAuthInfoFromCookie(request);
     if (!authInfo || !authInfo.username) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -30,11 +30,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ suggestions: [] });
     }
 
-    // 违禁词检查
-    if (blacklistedWords.some(word => query.toLowerCase().includes(word.toLowerCase()))) {
+    // 新增: 检查查询是否包含违禁词
+    if (bannedWords.some((word: string) => query.toLowerCase().includes(word.toLowerCase()))) {
       return NextResponse.json({ suggestions: [] });
     }
 
+    // 繁体转简体
     let normalizedQuery = query;
     try {
       normalizedQuery = await toSimplified(query);
@@ -42,12 +43,14 @@ export async function GET(request: NextRequest) {
       console.warn('繁体转简体失败', e);
     }
 
+    // 生成建议
     const suggestions = await generateSuggestions(
       config,
       normalizedQuery,
       authInfo.username
     );
 
+    // 从配置中获取缓存时间，如果没有配置则使用默认值300秒（5分钟）
     const cacheTime = config.SiteConfig.SiteInterfaceCacheTime || 300;
 
     return NextResponse.json(
@@ -67,7 +70,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// generateSuggestions 函数保持不变（省略，与原文件相同）
 async function generateSuggestions(
   config: AdminConfig,
   query: string,
@@ -85,6 +87,7 @@ async function generateSuggestions(
   let realKeywords: string[] = [];
 
   if (apiSites.length > 0) {
+    // 取第一个可用的数据源进行搜索
     const firstSite = apiSites[0];
     const results = await searchFromApi(firstSite, query);
 
@@ -92,6 +95,7 @@ async function generateSuggestions(
       new Set(
         results
           .filter((r: any) => {
+            // 成人内容过滤
             if (!config.SiteConfig.DisableYellowFilter) {
               if (firstSite.is_adult) return false;
               const typeName = r.type_name || '';
@@ -110,22 +114,25 @@ async function generateSuggestions(
     ).slice(0, 8);
   }
 
+  // 根据关键词与查询的匹配程度计算分数，并动态确定类型
   const realSuggestions = realKeywords.map((word) => {
     const wordLower = word.toLowerCase();
     const queryWords = queryLower.split(/[ -:：·、-]/);
 
+    // 计算匹配分数：完全匹配得分更高
     let score = 1.0;
     if (wordLower === queryLower) {
-      score = 2.0;
+      score = 2.0; // 完全匹配
     } else if (
       wordLower.startsWith(queryLower) ||
       wordLower.endsWith(queryLower)
     ) {
-      score = 1.8;
+      score = 1.8; // 前缀或后缀匹配
     } else if (queryWords.some((qw) => wordLower.includes(qw))) {
-      score = 1.5;
+      score = 1.5; // 包含查询词
     }
 
+    // 根据匹配程度确定类型
     let type: 'exact' | 'related' | 'suggestion' = 'related';
     if (score >= 2.0) {
       type = 'exact';
@@ -135,13 +142,24 @@ async function generateSuggestions(
       type = 'suggestion';
     }
 
-    return { text: word, type, score };
+    return {
+      text: word,
+      type,
+      score,
+    };
   });
 
-  const sortedSuggestions = realSuggestions.sort((a, b) => {
+  // 新增: 过滤建议中的违禁词
+  const filteredSuggestions = realSuggestions.filter((s) => 
+    !bannedWords.some((word: string) => s.text.includes(word))
+  );
+
+  // 按分数降序排列，相同分数按类型优先级排列
+  const sortedSuggestions = filteredSuggestions.sort((a, b) => {
     if (a.score !== b.score) {
-      return b.score - a.score;
+      return b.score - a.score; // 分数高的在前
     }
+    // 分数相同时，按类型优先级：exact > related > suggestion
     const typePriority = { exact: 3, related: 2, suggestion: 1 };
     return typePriority[b.type] - typePriority[a.type];
   });

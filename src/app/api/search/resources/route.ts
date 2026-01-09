@@ -1,3 +1,4 @@
+// Modified file: resources.route.ts
 /* eslint-disable no-console */
 
 import { NextRequest, NextResponse } from 'next/server';
