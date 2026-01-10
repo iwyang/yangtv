@@ -735,19 +735,33 @@ function PlayPageClient() {
         const data = await response.json();
 
         // 处理搜索结果，根据规则过滤
-        const results = data.results.filter(
-          (result: SearchResult) =>
-            result.title.replaceAll(' ', '').toLowerCase().includes(
-              videoTitleRef.current.replaceAll(' ', '').toLowerCase()
-			) &&  
-            (videoYearRef.current
-              ? result.year.toLowerCase() === videoYearRef.current.toLowerCase()
-              : true) &&
-            (searchType
-              ? (searchType === 'tv' && result.episodes.length > 1) ||
-                (searchType === 'movie' && result.episodes.length === 1)
-              : true)
-        );
+        const results = data.results.filter((result: SearchResult) => {
+          if (!result.title) return false;
+		  
+		  const mainTitle = (videoTitleRef.current || searchTitle || '')
+		    .trim()
+		    .replaceAll(' ', '')
+		    .toLowerCase();
+		  
+		  const sourceTitle = result.title
+            .trim()
+			.replaceAll(' ', '')
+			.toLowerCase();
+			
+		  // 核心：必须以主标题开头	
+		  const isPrefixMatch = sourceTitle.startsWith(mainTitle);
+		  
+		  const yearMatch = videoYearRef.current
+		    ? result.year?.toLowerCase() === videoYearRef.current.toLowerCase()
+			: true;
+			
+		  const typeMatch = searchType	
+		    ? (searchType === 'tv' && result.episodes.length > 1) ||
+			  (searchType === 'movie' && result.episodes.length === 1)
+			: true;
+
+		  return isPrefixMatch && yearMatch && typeMatch;
+		});
         setAvailableSources(results);
         return results;
       } catch (err) {
