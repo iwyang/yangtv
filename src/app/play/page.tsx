@@ -738,28 +738,42 @@ function PlayPageClient() {
         const results = data.results.filter((result: SearchResult) => {
           if (!result.title) return false;
 		  
-		  const mainTitle = (videoTitleRef.current || searchTitle || '')
+		  // 主标题处理（忽略大小写、去掉所有空格）
+		  const mainTitle = (searchTitle || videoTitleRef.current || '')
 		    .trim()
-		    .replaceAll(' ', '')
+		    .replace(/\s+/g, '')           // 推荐用这个正则，更彻底去空格
 		    .toLowerCase();
 		  
-		  const sourceTitle = result.title
+		  // 源标题同样处理
+		  const sourceTitleClean = result.title
             .trim()
-			.replaceAll(' ', '')
+			.replace(/\s+/g, '')
 			.toLowerCase();
 			
-		  // 核心：必须以主标题开头	
-		  const isPrefixMatch = sourceTitle.startsWith(mainTitle);
+		  // ★ 最核心条件：必须以主标题开头（最能保证相关性）
+		  const isPrefixMatch = sourceTitleClean.startsWith(mainTitle);
 		  
+		  // 年份匹配（建议保留）
 		  const yearMatch = videoYearRef.current
 		    ? result.year?.toLowerCase() === videoYearRef.current.toLowerCase()
 			: true;
 			
-		  const typeMatch = searchType	
-		    ? (searchType === 'tv' && result.episodes.length > 1) ||
-			  (searchType === 'movie' && result.episodes.length === 1)
-			: true;
-
+          // 类型判断放宽（解决电影被标成 tv 的常见问题）
+		  const episodeCount = result.episodes?.length ?? 0;
+		  const isLikelyMovie = episodeCount <= 5;  // 允许 1~5 集（处理分上下部、误标、长片分段等）
+		  const isLikelyTv = episodeCount > 1;
+		  
+		  let typeMatch = true;
+		  
+		  if (searchType) {
+			if (searchType === 'movie') {
+			  typeMatch = isLikelyMovie;           // 电影要求：看起来像电影即可
+			} else if (searchType === 'tv') {
+			  typeMatch = isLikelyTv;              // 电视剧还是要求多集
+			}
+		  }
+		  
+		  // 最终返回条件：标题开头是必须的，类型已放宽
 		  return isPrefixMatch && yearMatch && typeMatch;
 		});
         setAvailableSources(results);
