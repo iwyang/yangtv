@@ -346,8 +346,29 @@ function PlayPageClient() {
       ),
     }));
 
-    // 按综合评分排序，选择最佳播放源
+    // 1. 执行综合评分排序
     resultsWithScore.sort((a, b) => b.score - a.score);
+	
+	// 2. 提取排序后的源，并合并未参与测速或失败的源
+	const sortedSources = resultsWithScore.map(r => r.source);
+	const otherSources = sources.filter(s =>
+	  !resultsWithScore.some(r => r.source.source === s.source && r.source.id === s.id)
+	);
+    const fullSortedList = [...sortedSources, ...otherSources];
+
+    // 3. 【核心修改】同步 UI 列表，并执行“置顶保护”
+    setAvailableSources(() => {
+	   // 找到当前正在播放的源 (使用 Ref 确保获取的是最新的播放状态)
+      const current = fullSortedList.find(s =>	
+        s.source === currentSourceRef.current && s.id === currentIdRef.current
+      );
+
+      if (!current) return fullSortedList;
+
+      // 返回：[当前播放源, ...其他按评分排好的源]
+      // 这样即便后台排序完成，列表第一项也不会变，防止 UI 跳动
+      return [current, ...fullSortedList.filter(s => s !== current)];
+    });	  
 
     console.log('播放源评分排序结果:');
     resultsWithScore.forEach((result, index) => {
@@ -832,16 +853,23 @@ function PlayPageClient() {
         }
       }
 
-      // 未指定源和 id 或需要优选，且开启优选开关
-      if (
-        (!currentSource || !currentId || needPreferRef.current) &&
-        optimizationEnabled
-      ) {
-        setLoadingStage('preferring');
-        setLoadingMessage('⚡ 正在优选最佳播放源...');
-
-        detailData = await preferBestSource(sourcesInfo);
-      }
+      // 修改优选的触发逻辑，实现有指定源时的异步非阻塞调用
+      if (optimizationEnabled) {
+        // 分支 A：无指定源，或者 URL 明确要求优选 (?prefer=true)
+		if (!currentSource || !currentId || needPreferRef.current) {
+		  setLoadingStage('preferring');
+		  setLoadingMessage('⚡ 正在优选最佳播放源...');
+		  // 这种情况下需要同步等待测速，以起播最快的源
+		  detailData = await preferBestSource(sourcesInfo);
+		}
+		// 分支 B：有指定源，执行“无感知优选”模式
+		else {
+		  console.log('检测到指定源，进入后台静默测速模式...');
+		  // 【关键】直接调用，不使用 await，不显示加载动画，不阻塞起播逻辑
+		  preferBestSource(sourcesInfo).catch(err => console.error("后台测速异常:", err));
+		  // detailData 此时已经是通过 URL 参数锁定的指定源了，直接进入下一步起播
+		}
+	   }
 
       console.log(detailData.source, detailData.id);
 
