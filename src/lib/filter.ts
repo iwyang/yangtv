@@ -32,5 +32,6 @@ export const bannedWords: string[] = [
   // 新加入 
   '预告片',    
   '罪恶之渊',  
+  '动态漫',   
   // 可继续添加更多隐晦代称
 ];
