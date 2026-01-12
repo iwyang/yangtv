@@ -760,7 +760,7 @@ function PlayPageClient() {
           if (!result.title) return false;
 		  
 		  // 主标题处理（忽略大小写、去掉所有空格）
-		  const mainTitle = (searchTitle || videoTitleRef.current || '')
+		  const mainTitle = (videoTitleRef.current || '')
 		    .trim()
 		    .replace(/\s+/g, '')           // 推荐用这个正则，更彻底去空格
 		    .toLowerCase();
