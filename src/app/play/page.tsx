@@ -130,6 +130,10 @@ function PlayPageClient() {
   const videoYearRef = useRef(videoYear);
   const detailRef = useRef<SearchResult | null>(detail);
   const currentEpisodeIndexRef = useRef(currentEpisodeIndex);
+  // --- 新增加 ---
+  const baseEpisodeCountRef = useRef<number>(0); 
+  // ----------------
+  
 
   // 同步最新值到 refs
   useEffect(() => {
@@ -335,14 +339,19 @@ function PlayPageClient() {
     const minPing = validPings.length > 0 ? Math.min(...validPings) : 50;
     const maxPing = validPings.length > 0 ? Math.max(...validPings) : 1000;
 
-    // 计算每个结果的评分
+    // 1. 先获取类型
+    const currentType = searchParams.get('type') || 'vod';
+	
+	// 2. 计算评分
     const resultsWithScore = successfulResults.map((result) => ({
       ...result,
       score: calculateSourceScore(
         result.testResult,
         maxSpeed,
         minPing,
-        maxPing
+        maxPing,
+		result.source, // 传入 source 对象
+		currentType    // 传入类型
       ),
     }));
 
@@ -393,11 +402,27 @@ function PlayPageClient() {
     },
     maxSpeed: number,
     minPing: number,
-    maxPing: number
+    maxPing: number,
+	source: SearchResult,
+	searchType: string
   ): number => {
     let score = 0;
-
-    // 分辨率评分 (40% 权重)
+	const baseCount = baseEpisodeCountRef.current; // 之前算出的众数集数
+    const currentCount = source.episodes?.length || 0;
+	
+    // 1. 【核心逻辑】集数沉底逻辑 (已去掉标题一致加分)
+	if (searchType !== 'movie' && baseCount > 6) {
+	  // 如果是电视剧且集数基数大，执行误差判断
+	  const diff = Math.abs(currentCount - baseCount);
+	  
+	  // 超过 30% 容错范围，直接重罚 300 分沉底
+	  if (diff > baseCount * 0.3) {
+		score -= 300;
+	  }
+	  // 30% 以内，电影 1集 vs 4集 均不扣分
+	}
+	
+	// 分辨率评分 (40% 权重)
     const qualityScore = (() => {
       switch (testResult.quality) {
         case '4K':
@@ -745,57 +770,59 @@ function PlayPageClient() {
       }
     };
     const fetchSourcesData = async (query: string): Promise<SearchResult[]> => {
-      // 根据搜索词获取全部源信息
       try {
-        const response = await fetch(
-          `/api/search?q=${encodeURIComponent(query.trim())}`
-        );
-        if (!response.ok) {
-          throw new Error('搜索失败');
-        }
-        const data = await response.json();
-
-        // 处理搜索结果，根据规则过滤
-        const results = data.results.filter((result: SearchResult) => {
-          if (!result.title) return false;
+		const response = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`);
+		if (!response.ok) throw new Error('搜索失败');
+		const data = await response.json();
+		const rawResults = data.results || [];
+		
+		// 1. 预处理：获取清洗后的主标题
+		const mainTitle = (videoTitleRef.current || '').trim().replace(/\s+/g, '').toLowerCase();
+		const searchType = searchParams.get('type') || 'vod';
+		
+		// 2. 【核心】统计众数：找出标题完全一致的源，看大家公认是多少集
+		const perfectMatches = rawResults.filter((r: SearchResult) =>
+		  r.title.trim().replace(/\s+/g, '').toLowerCase() === mainTitle
+	    );
+		
+		if (perfectMatches.length > 0) {
+		  const counts: Record<number, number> = {};
+		  perfectMatches.forEach((r: any) => {
+			const len = r.episodes?.length || 0;
+			if (len > 0) counts[len] = (counts[len] || 0) + 1;
+		  });
 		  
-		  // 主标题处理（忽略大小写、去掉所有空格）
-		  const mainTitle = (videoTitleRef.current || '')
-		    .trim()
-		    .replace(/\s+/g, '')           // 推荐用这个正则，更彻底去空格
-		    .toLowerCase();
-		  
-		  // 源标题同样处理
-		  const sourceTitleClean = result.title
-            .trim()
-			.replace(/\s+/g, '')
-			.toLowerCase();
-			
-		  // ★ 最核心条件：必须以主标题开头（最能保证相关性）
-		  const isPrefixMatch = sourceTitleClean.startsWith(mainTitle);
-		  
-		  // 年份匹配（建议保留）
-		  const yearMatch = videoYearRef.current
-		    ? result.year?.toLowerCase() === videoYearRef.current.toLowerCase()
-			: true;
-			
-          // 类型判断放宽（解决电影被标成 tv 的常见问题）
-		  const episodeCount = result.episodes?.length ?? 0;
-		  const isLikelyMovie = episodeCount <= 5;  // 允许 1~5 集（处理分上下部、误标、长片分段等）
-		  const isLikelyTv = episodeCount > 1;
-		  
-		  let typeMatch = true;
-		  
-		  if (searchType) {
-			if (searchType === 'movie') {
-			  typeMatch = isLikelyMovie;           // 电影要求：看起来像电影即可
-			} else if (searchType === 'tv') {
-			  typeMatch = isLikelyTv;              // 电视剧还是要求多集
+		  let modeCount = 0;
+		  let maxFreq = 0;
+		  for (const [count, freq] of Object.entries(counts)) {
+			if (freq > maxFreq) {
+			  maxFreq = freq;
+			  modeCount = parseInt(count);
 			}
 		  }
+		  baseEpisodeCountRef.current = modeCount; // 锁定基准集数
 		  
-		  // 最终返回条件：标题开头是必须的，类型已放宽
-		  return isPrefixMatch && yearMatch && typeMatch;
+		// 3. 【核心】执行过滤
+		const results = rawResults.filter((result: SearchResult) => {
+		  if (!result.title) return false;
+		  
+		  const sourceTitleClean = result.title.trim().replace(/\s+/g, '').toLowerCase();
+          const episodeCount = result.episodes?.length ?? 0;
+         
+		  // ★ 条件 A：必须以主标题开头
+		  if (!sourceTitleClean.startsWith(mainTitle)) return false;
+		  
+		  // ★ 条件 B：电影硬拦截（搜电影时，超过 6 集的电视剧直接不显示）
+		  if (searchType === 'movie') {
+			if (episodeCount > 6) return false; // 102集猫和老鼠会死在这里
+		  }
+		  
+		  // ★ 条件 C：年份匹配
+		  const yearMatch = videoYearRef.current
+		    ? result.year?.toString().toLowerCase() === videoYearRef.current.toString().toLowerCase()
+			: true;
+			
+		  return yearMatch;		    
 		});
         setAvailableSources(results);
         return results;
