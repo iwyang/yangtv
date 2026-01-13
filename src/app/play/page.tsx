@@ -349,9 +349,7 @@ function PlayPageClient() {
         result.testResult,
         maxSpeed,
         minPing,
-        maxPing,
-		result.source, // 传入 source 对象
-		currentType    // 传入类型
+        maxPing
       ),
     }));
 
@@ -402,25 +400,9 @@ function PlayPageClient() {
     },
     maxSpeed: number,
     minPing: number,
-    maxPing: number,
-	source: SearchResult,
-	searchType: string
+    maxPing: number
   ): number => {
     let score = 0;
-	const baseCount = baseEpisodeCountRef.current; // 之前算出的众数集数
-    const currentCount = source.episodes?.length || 0;
-	
-    // 1. 【核心逻辑】集数沉底逻辑 (已去掉标题一致加分)
-	if (searchType !== 'movie' && baseCount > 6) {
-	  // 如果是电视剧且集数基数大，执行误差判断
-	  const diff = Math.abs(currentCount - baseCount);
-	  
-	  // 超过 30% 容错范围，直接重罚 300 分沉底
-	  if (diff > baseCount * 0.3) {
-		score -= 300;
-	  }
-	  // 30% 以内，电影 1集 vs 4集 均不扣分
-	}
 	
 	// 分辨率评分 (40% 权重)
     const qualityScore = (() => {
