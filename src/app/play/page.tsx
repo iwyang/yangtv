@@ -814,6 +814,7 @@ function PlayPageClient() {
 		  
 		  const sourceTitleClean = result.title.trim().replace(/\s+/g, '').toLowerCase();
           const episodeCount = result.episodes?.length ?? 0;
+		  const baseCount = baseEpisodeCountRef.current; // 获取众数基准
          
 		  // ★ 条件 A：必须以主标题开头
 		  if (!sourceTitleClean.startsWith(mainTitle)) return false;
@@ -821,6 +822,17 @@ function PlayPageClient() {
 		  // ★ 条件 B：电影硬拦截（搜电影时，超过 6 集的电视剧直接不显示）
 		  if (searchType === 'movie') {
 			if (episodeCount > 5) return false; // 102集猫和老鼠会死在这里
+		  } else {
+			// 电视剧模式：执行 30% 误差屏蔽逻辑
+			// [新增] 只有在大家公认的集数(baseCount)有意义时(如>6集)才开启强力过滤
+			if (baseCount > 6) {
+			  const diff = Math.abs(episodeCount - baseCount);
+			  // [新增] 超过 30% 误差直接屏蔽返回 false
+			  if (diff > baseCount * 0.3) {
+				console.log(`屏蔽误差源: ${result.title} (当前${episodeCount}集, 预期约${baseCount}集)`);
+				return false;
+			  }
+			}
 		  }
 		  
 		  // ★ 条件 C：年份匹配
