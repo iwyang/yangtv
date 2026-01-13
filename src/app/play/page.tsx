@@ -340,7 +340,7 @@ function PlayPageClient() {
     const maxPing = validPings.length > 0 ? Math.max(...validPings) : 1000;
 
     // 1. 先获取类型
-    const currentType = searchParams.get('type') || 'vod';
+    const currentType = searchParams.get('stype') || searchParams.get('type') || 'vod';
 	
 	// 2. 计算评分
     const resultsWithScore = successfulResults.map((result) => ({
@@ -778,8 +778,12 @@ function PlayPageClient() {
 		
 		// 1. 预处理：获取清洗后的主标题
 		const mainTitle = (videoTitleRef.current || '').trim().replace(/\s+/g, '').toLowerCase();
-		const searchType = searchParams.get('type') || 'vod';
+		const searchType = searchParams.get('stype') || searchParams.get('type') || 'vod';
 		
+		// ★★★ 修改这里：统计众数逻辑前增加判断 ★★★
+		if (searchType === 'movie') {
+		  baseEpisodeCountRef.current = 1; // 如果是电影，强制基准集数为1
+		  } else {
 		// 2. 【核心】统计众数：找出标题完全一致的源，看大家公认是多少集
 		const perfectMatches = rawResults.filter((r: SearchResult) =>
 		  r.title.trim().replace(/\s+/g, '').toLowerCase() === mainTitle
@@ -802,6 +806,7 @@ function PlayPageClient() {
 		  }
 		  baseEpisodeCountRef.current = modeCount; // 锁定基准集数
 		} 
+		
 		// 3. 【核心】执行过滤
 		const results = rawResults.filter((result: SearchResult) => {
 		  if (!result.title) return false;
@@ -814,7 +819,7 @@ function PlayPageClient() {
 		  
 		  // ★ 条件 B：电影硬拦截（搜电影时，超过 6 集的电视剧直接不显示）
 		  if (searchType === 'movie') {
-			if (episodeCount > 6) return false; // 102集猫和老鼠会死在这里
+			if (episodeCount > 5) return false; // 102集猫和老鼠会死在这里
 		  }
 		  
 		  // ★ 条件 C：年份匹配
