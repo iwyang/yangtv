@@ -131,7 +131,7 @@ const DoubanSelector: React.FC<DoubanSelectorProps> = ({
     }
   };
 
-  // 组件挂载 + type 变化时初始化指示器
+  // 初始化主选择器指示器位置
   useEffect(() => {
     let activeIndex = -1;
 
@@ -161,81 +161,26 @@ const DoubanSelector: React.FC<DoubanSelectorProps> = ({
         setPrimaryIndicatorStyle
       );
     }
+  }, [type, primarySelection]);
 
-    // 副选择器初始化
-    let secIndex = -1;
+  // 初始化副选择器指示器位置
+  useEffect(() => {
+    let activeIndex = -1;
+
     if (type === 'movie') {
-      secIndex = movieSecondaryOptions.findIndex(
+      activeIndex = movieSecondaryOptions.findIndex(
         (opt) => opt.value === (secondarySelection || '全部')
       );
     } else if (type === 'tv') {
-      secIndex = tvSecondaryOptions.findIndex(
+      activeIndex = tvSecondaryOptions.findIndex(
         (opt) => opt.value === (secondarySelection || 'tv')
       );
     } else if (type === 'show') {
-      secIndex = showSecondaryOptions.findIndex(
+      activeIndex = showSecondaryOptions.findIndex(
         (opt) => opt.value === (secondarySelection || 'show')
       );
     }
 
-    if (secIndex >= 0) {
-      updateIndicatorPosition(
-        secIndex,
-        secondaryContainerRef,
-        secondaryButtonRefs,
-        setSecondaryIndicatorStyle
-      );
-    }
-  }, [type]);
-
-  // 主选择器变化时更新指示器
-  useEffect(() => {
-    let activeIndex = -1;
-    if (type === 'movie') {
-      activeIndex = moviePrimaryOptions.findIndex(
-        (opt) => opt.value === primarySelection
-      );
-    } else if (type === 'tv') {
-      activeIndex = tvPrimaryOptions.findIndex(
-        (opt) => opt.value === primarySelection
-      );
-    } else if (type === 'show') {
-      activeIndex = showPrimaryOptions.findIndex(
-        (opt) => opt.value === primarySelection
-      );
-    } else if (type === 'anime') {
-      activeIndex = animePrimaryOptions.findIndex(
-        (opt) => opt.value === primarySelection
-      );
-    }
-
-    if (activeIndex >= 0) {
-      updateIndicatorPosition(
-        activeIndex,
-        primaryContainerRef,
-        primaryButtonRefs,
-        setPrimaryIndicatorStyle
-      );
-    }
-  }, [primarySelection]);
-
-  // 副选择器变化时更新指示器
-  useEffect(() => {
-    let activeIndex = -1;
-    if (type === 'movie') {
-      activeIndex = movieSecondaryOptions.findIndex(
-        (opt) => opt.value === secondarySelection
-      );
-    } else if (type === 'tv') {
-      activeIndex = tvSecondaryOptions.findIndex(
-        (opt) => opt.value === secondarySelection
-      );
-    } else if (type === 'show') {
-      activeIndex = showSecondaryOptions.findIndex(
-        (opt) => opt.value === secondarySelection
-      );
-    }
-
     if (activeIndex >= 0) {
       updateIndicatorPosition(
         activeIndex,
@@ -244,7 +189,7 @@ const DoubanSelector: React.FC<DoubanSelectorProps> = ({
         setSecondaryIndicatorStyle
       );
     }
-  }, [secondarySelection]);
+  }, [type, secondarySelection]);
 
   const renderCapsuleSelector = (
     options: SelectorOption[],
@@ -276,7 +221,11 @@ const DoubanSelector: React.FC<DoubanSelectorProps> = ({
           return (
             <button
               key={option.value}
-              ref={(el) => (buttonRefs.current[index] = el)}
+              // ──────── 关键修复在这里 ────────
+              ref={el => {
+                buttonRefs.current[index] = el;
+              }}
+              // ─────────────────────────────────
               onClick={() => onChange(option.value)}
               className={`relative z-10 px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-full transition-all duration-200 whitespace-nowrap ${
                 isActive
@@ -390,7 +339,7 @@ const DoubanSelector: React.FC<DoubanSelectorProps> = ({
         </div>
       )}
 
-      {/* 动漫（无每日放送） */}
+      {/* 动漫 */}
       {type === 'anime' && (
         <div className="space-y-3 sm:space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
