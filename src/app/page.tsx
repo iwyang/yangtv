@@ -30,7 +30,7 @@ function HomeClient() {
 
   const [showAnnouncement, setShowAnnouncement] = useState(false);
 
-  // 检查是否已看过公告
+  // 公告逻辑
   useEffect(() => {
     if (typeof window !== 'undefined' && announcement) {
       const hasSeen = localStorage.getItem('hasSeenAnnouncement');
@@ -42,7 +42,7 @@ function HomeClient() {
     }
   }, [announcement]);
 
-  // 收藏夹相关类型
+  // 收藏夹类型
   type FavoriteItem = {
     id: string;
     source: string;
@@ -57,7 +57,7 @@ function HomeClient() {
 
   const [favoriteItems, setFavoriteItems] = useState<FavoriteItem[]>([]);
 
-  // 首页数据加载（全部改为近期热度推荐）
+  // 数据加载（保持 pageLimit: 20）
   useEffect(() => {
     const fetchRecommendData = async () => {
       try {
@@ -69,27 +69,23 @@ function HomeClient() {
           varietyRes,
           animeRes,
         ] = await Promise.all([
-          // 热门电影 → 全部电影 + 近期热度
           getDoubanRecommends({
             kind: 'movie',
             pageLimit: 20,
             sort: 'U',
           }),
-          // 热门剧集 → 全部电视剧 + 近期热度
           getDoubanRecommends({
             kind: 'tv',
             pageLimit: 20,
             format: '电视剧',
             sort: 'U',
           }),
-          // 热门综艺 → 全部综艺 + 近期热度
           getDoubanRecommends({
             kind: 'tv',
             pageLimit: 20,
             format: '综艺',
             sort: 'U',
           }),
-          // 热门番剧 → 动画（番剧） + 近期热度
           getDoubanRecommends({
             kind: 'tv',
             pageLimit: 20,
@@ -99,18 +95,10 @@ function HomeClient() {
           }),
         ]);
 
-        if (moviesRes.code === 200) {
-          setHotMovies(moviesRes.list);
-        }
-        if (tvRes.code === 200) {
-          setHotTvShows(tvRes.list);
-        }
-        if (varietyRes.code === 200) {
-          setHotVarietyShows(varietyRes.list);
-        }
-        if (animeRes.code === 200) {
-          setHotAnimes(animeRes.list);
-        }
+        if (moviesRes.code === 200) setHotMovies(moviesRes.list);
+        if (tvRes.code === 200) setHotTvShows(tvRes.list);
+        if (varietyRes.code === 200) setHotVarietyShows(varietyRes.list);
+        if (animeRes.code === 200) setHotAnimes(animeRes.list);
       } catch (error) {
         console.error('获取首页推荐数据失败:', error);
       } finally {
@@ -121,22 +109,11 @@ function HomeClient() {
     fetchRecommendData();
   }, []);
 
-  // 收藏夹数据加载（保持原有逻辑）
+  // 收藏夹加载（示例占位）
   useEffect(() => {
     if (activeTab !== 'favorites') return;
-
-    const loadFavorites = async () => {
-      // ... 原有 getAllFavorites / updateFavoriteItems 逻辑 ...
-      // （这里省略具体实现，如果你有独立的收藏夹代码请自行合并）
-      // 示例占位：
-      setFavoriteItems([]); // 请替换为实际逻辑
-    };
-
-    loadFavorites();
-
-    // 订阅更新（如果有）
-    // const unsubscribe = subscribeToDataUpdates(...);
-    // return unsubscribe;
+    // ... 你的收藏夹逻辑 ...
+    setFavoriteItems([]);
   }, [activeTab]);
 
   const handleCloseAnnouncement = (announcement: string) => {
@@ -177,7 +154,6 @@ function HomeClient() {
       </div>
 
       <div className="px-2 sm:px-10 py-4 sm:py-8 overflow-visible">
-        {/* Tab 切换 */}
         <div className="mb-8 flex justify-center">
           <CapsuleSwitch
             options={[
@@ -228,10 +204,9 @@ function HomeClient() {
             </section>
           ) : (
             <>
-              {/* 继续观看 */}
               <ContinueWatching />
 
-              {/* 热门电影 */}
+              {/* 热门电影 - 显示全部（最多20条，实际渲染18条骨架对应） */}
               <section className="mb-8">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">
@@ -247,7 +222,7 @@ function HomeClient() {
                 </div>
                 <ScrollableRow>
                   {loading
-                    ? Array.from({ length: 8 }).map((_, index) => (
+                    ? Array.from({ length: 18 }).map((_, index) => (
                         <div key={index} className="min-w-24 w-24 sm:min-w-45 sm:w-44">
                           <div className="relative aspect-2/3 w-full overflow-hidden rounded-lg bg-gray-200 animate-pulse dark:bg-gray-800">
                             <div className="absolute inset-0 bg-gray-300 dark:bg-gray-700" />
@@ -255,7 +230,7 @@ function HomeClient() {
                           <div className="mt-2 h-4 bg-gray-200 rounded animate-pulse dark:bg-gray-800" />
                         </div>
                       ))
-                    : hotMovies.slice(0, 8).map((movie, index) => (
+                    : hotMovies.slice(0, 18).map((movie, index) => (
                         <div key={index} className="min-w-24 w-24 sm:min-w-45 sm:w-44">
                           <VideoCard
                             from="douban"
@@ -287,7 +262,7 @@ function HomeClient() {
                 </div>
                 <ScrollableRow>
                   {loading
-                    ? Array.from({ length: 8 }).map((_, index) => (
+                    ? Array.from({ length: 18 }).map((_, index) => (
                         <div key={index} className="min-w-24 w-24 sm:min-w-45 sm:w-44">
                           <div className="relative aspect-2/3 w-full overflow-hidden rounded-lg bg-gray-200 animate-pulse dark:bg-gray-800">
                             <div className="absolute inset-0 bg-gray-300 dark:bg-gray-700" />
@@ -295,7 +270,7 @@ function HomeClient() {
                           <div className="mt-2 h-4 bg-gray-200 rounded animate-pulse dark:bg-gray-800" />
                         </div>
                       ))
-                    : hotTvShows.slice(0, 8).map((show, index) => (
+                    : hotTvShows.slice(0, 18).map((show, index) => (
                         <div key={index} className="min-w-24 w-24 sm:min-w-45 sm:w-44">
                           <VideoCard
                             from="douban"
@@ -326,7 +301,7 @@ function HomeClient() {
                 </div>
                 <ScrollableRow>
                   {loading
-                    ? Array.from({ length: 8 }).map((_, index) => (
+                    ? Array.from({ length: 18 }).map((_, index) => (
                         <div key={index} className="min-w-24 w-24 sm:min-w-45 sm:w-44">
                           <div className="relative aspect-2/3 w-full overflow-hidden rounded-lg bg-gray-200 animate-pulse dark:bg-gray-800">
                             <div className="absolute inset-0 bg-gray-300 dark:bg-gray-700" />
@@ -334,7 +309,7 @@ function HomeClient() {
                           <div className="mt-2 h-4 bg-gray-200 rounded animate-pulse dark:bg-gray-800" />
                         </div>
                       ))
-                    : hotAnimes.slice(0, 8).map((anime, index) => (
+                    : hotAnimes.slice(0, 18).map((anime, index) => (
                         <div key={index} className="min-w-24 w-24 sm:min-w-45 sm:w-44">
                           <VideoCard
                             from="douban"
@@ -365,7 +340,7 @@ function HomeClient() {
                 </div>
                 <ScrollableRow>
                   {loading
-                    ? Array.from({ length: 8 }).map((_, index) => (
+                    ? Array.from({ length: 18 }).map((_, index) => (
                         <div key={index} className="min-w-24 w-24 sm:min-w-45 sm:w-44">
                           <div className="relative aspect-2/3 w-full overflow-hidden rounded-lg bg-gray-200 animate-pulse dark:bg-gray-800">
                             <div className="absolute inset-0 bg-gray-300 dark:bg-gray-700" />
@@ -373,7 +348,7 @@ function HomeClient() {
                           <div className="mt-2 h-4 bg-gray-200 rounded animate-pulse dark:bg-gray-800" />
                         </div>
                       ))
-                    : hotVarietyShows.slice(0, 8).map((show, index) => (
+                    : hotVarietyShows.slice(0, 18).map((show, index) => (
                         <div key={index} className="min-w-24 w-24 sm:min-w-45 sm:w-44">
                           <VideoCard
                             from="douban"
