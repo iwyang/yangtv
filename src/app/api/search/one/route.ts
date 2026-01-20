@@ -84,7 +84,13 @@ export async function GET(request: NextRequest) {
     }
 
     const results = await searchFromApi(targetSite, query);
-    let result = results.filter((r) => r.title === query);
+    // ✨ 修改匹配逻辑：对比前去掉双方的所有空格
+    let result = results.filter((r) => {
+      if (!r.title) return false;
+      const normalizedR = r.title.replace(/\s+/g, '');
+      const normalizedQ = query.replace(/\s+/g, '');
+      return normalizedR === normalizedQ;
+    });
 
     // 新增: 过滤结果中的违禁词
     result = result.filter((r) => {

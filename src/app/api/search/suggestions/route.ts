@@ -91,6 +91,9 @@ async function generateSuggestions(
     const firstSite = apiSites[0];
     const results = await searchFromApi(firstSite, query);
 
+    // ✨ 提前准备好查询词的去空格版本
+    const queryCollapsed = queryLower.replace(/\s+/g, '');
+
     realKeywords = Array.from(
       new Set(
         results
@@ -107,9 +110,18 @@ async function generateSuggestions(
           .map((r: any) => r.title)
           .filter(Boolean)
           .flatMap((title: string) => title.split(/[ -:：·、-]/))
-          .filter(
-            (w: string) => w.length > 1 && w.toLowerCase().includes(queryLower)
-          )
+          .filter((w: string) => {
+            const wordLower = w.toLowerCase();
+            // ✨ 新增：将候选词也去掉空格
+            const wordCollapsed = wordLower.replace(/\s+/g, '');
+            
+            // 修改后的判断逻辑：
+            // 只要长度大于 1，并且（原词包含搜索词 OR 去空格后的词包含去空格后的搜索词）
+            return (
+              w.length > 1 && 
+              (wordLower.includes(queryLower) || wordCollapsed.includes(queryCollapsed))
+            );
+          })
       )
     ).slice(0, 8);
   }

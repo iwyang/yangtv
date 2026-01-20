@@ -83,8 +83,20 @@ export async function GET(request: NextRequest) {
 
   // 准备搜索关键词列表
   const searchQueries = [normalizedQuery];
+  
+  // ✨ 新增：生成去空格版本，确保能搜到 Kvrocks 中不带空格的 Key
+  const collapsedQuery = normalizedQuery.replace(/\s+/g, '');
+  if (collapsedQuery !== normalizedQuery) {
+    searchQueries.push(collapsedQuery);
+  }
+  
   if (query && normalizedQuery !== query) {
     searchQueries.push(query);
+    // 如果原词有空格，也加个去空格版
+    const collapsedOriginal = query.replace(/\s+/g, '');
+    if (collapsedOriginal !== query && collapsedOriginal !== collapsedQuery) {
+      searchQueries.push(collapsedOriginal);
+    }
   }
 
   // 共享状态

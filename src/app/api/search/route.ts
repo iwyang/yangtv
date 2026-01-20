@@ -76,8 +76,17 @@ export async function GET(request: NextRequest) {
 
   // 准备搜索关键词列表：如果转换后的关键词与原词不同，则同时搜索两者
   const searchQueries = [normalizedQuery];
+  const collapsedQuery = normalizedQuery.replace(/\s+/g, '');
+  if (collapsedQuery !== normalizedQuery) {
+    searchQueries.push(collapsedQuery);
+  }
+
   if (query && normalizedQuery !== query) {
     searchQueries.push(query);
+    const collapsedOriginal = query.replace(/\s+/g, '');
+    if (collapsedOriginal !== query && collapsedOriginal !== collapsedQuery) {
+      searchQueries.push(collapsedOriginal);
+    }
   }
 
   // 添加超时控制和错误处理，避免慢接口拖累整体响应
