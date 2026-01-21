@@ -82,17 +82,33 @@ export async function GET(request: NextRequest) {
   }
 
   // 准备搜索关键词列表
+  // 准备搜索关键词列表
   const searchQueries = [normalizedQuery];
   
-  // ✨ 新增：生成去空格版本，确保能搜到 Kvrocks 中不带空格的 Key
+  // 新增：处理“第n季/部”自动加空格逻辑，支持从“剑来第二季”生成“剑来 第二季”
+  const seasonRegex = /(.+?)(第[0-9一二三四五六七八九十]+[季部])/;
+  const match = normalizedQuery.match(seasonRegex);
+  if (match && !normalizedQuery.includes(' ')) {
+    searchQueries.push(`${match[1]} ${match[2]}`);
+  }
+
   const collapsedQuery = normalizedQuery.replace(/\s+/g, '');
-  if (collapsedQuery !== normalizedQuery) {
+  if (collapsedQuery !== normalizedQuery && !searchQueries.includes(collapsedQuery)) {
     searchQueries.push(collapsedQuery);
   }
-  
+
   if (query && normalizedQuery !== query) {
     searchQueries.push(query);
-    // 如果原词有空格，也加个去空格版
+    
+    // 对原始查询也进行同样的“第n季/部”处理
+    const originMatch = query.match(seasonRegex);
+    if (originMatch && !query.includes(' ')) {
+      const spacedOrigin = `${originMatch[1]} ${originMatch[2]}`;
+      if (!searchQueries.includes(spacedOrigin)) {
+        searchQueries.push(spacedOrigin);
+      }
+    }
+    
     const collapsedOriginal = query.replace(/\s+/g, '');
     if (collapsedOriginal !== query && collapsedOriginal !== collapsedQuery) {
       searchQueries.push(collapsedOriginal);
