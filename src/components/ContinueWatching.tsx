@@ -57,15 +57,17 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
 
     fetchPlayRecords();
 
-    // 监听播放记录更新事件
+    // 修复点：显式为 allRecords 指定类型 Record<string, PlayRecord>
     const unsubscribe = subscribeToDataUpdates(
       'playRecordsUpdated',
-      (newRecords: Record<string, PlayRecord>) => {
-        updatePlayRecords(newRecords);
+      (allRecords: Record<string, PlayRecord>) => {
+        updatePlayRecords(allRecords);
       }
     );
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // 如果没有播放记录，则不渲染组件
@@ -81,8 +83,11 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
 
   // 从 key 中解析 source 和 id
   const parseKey = (key: string) => {
-    const [source, id] = key.split('+');
-    return { source, id };
+    const plusIndex = key.indexOf('+');
+    return {
+      source: key.substring(0, plusIndex),
+      id: key.substring(plusIndex + 1),
+    };
   };
 
   return (
@@ -93,10 +98,13 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
         </h2>
         {!loading && playRecords.length > 0 && (
           <button
-            className='text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+            className='text-sm font-medium text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 transition-colors'
             onClick={async () => {
-              await clearAllPlayRecords();
-              setPlayRecords([]);
+              // 添加确认弹窗
+              if (confirm('确定清空所有观看记录吗？')) {
+                await clearAllPlayRecords();
+                setPlayRecords([]);
+              }
             }}
           >
             清空
@@ -105,8 +113,7 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
       </div>
       <ScrollableRow>
         {loading
-          ? // 加载状态显示灰色占位数据
-            Array.from({ length: 6 }).map((_, index) => (
+          ? Array.from({ length: 6 }).map((_, index) => (
               <div
                 key={index}
                 className='min-w-24 w-24 sm:min-w-45 sm:w-44'
@@ -118,8 +125,7 @@ export default function ContinueWatching({ className }: ContinueWatchingProps) {
                 <div className='mt-1 h-3 bg-gray-200 rounded animate-pulse dark:bg-gray-800'></div>
               </div>
             ))
-          : // 显示真实数据
-            playRecords.map((record) => {
+          : playRecords.map((record) => {
               const { source, id } = parseKey(record.key);
               return (
                 <div
