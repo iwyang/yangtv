@@ -251,7 +251,7 @@ function DoubanPageClient() {
       if (data.code === 200) {
         if (isSnapshotEqual(snapshot, currentParamsRef.current)) {
           setDoubanData(data.list);
-          setHasMore(data.list.length === 25); // 假设每页25条，有25条可能还有更多
+          setHasMore(data.list.length !== 0); 
         }
       } else {
         throw new Error(data.message || '获取数据失败');
@@ -347,7 +347,7 @@ function DoubanPageClient() {
         if (data.code === 200) {
           if (isSnapshotEqual(snapshot, currentParamsRef.current)) {
             setDoubanData(prev => [...prev, ...data.list]);
-            setHasMore(data.list.length === 25);
+            setHasMore(data.list.length !== 0);
           }
         }
       } catch (err) {
