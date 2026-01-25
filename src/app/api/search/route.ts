@@ -107,11 +107,30 @@ export async function GET(request: NextRequest) {
     }
   }
   
-  // 新增：处理“第n季/部”自动加空格逻辑，支持从“剑来第二季”生成“剑来 第二季”
+  // 1.新增：处理“第n季/部”自动加空格逻辑，支持从“剑来第二季”生成“剑来 第二季”
   const seasonRegex = /(.+?)(第[0-9一二三四五六七八九十]+[季部])/;
   const match = normalizedQuery.match(seasonRegex);
   if (match && !normalizedQuery.includes(' ')) {
     searchQueries.push(`${match[1]} ${match[2]}`);
+  }
+  
+  // 2.优化后的篇章拆分逻辑：针对特定篇章名进行锚定
+  // 匹配原理：(作品名)(篇章关键字)(篇)
+  const knownArcs = '无限列车|游郭|锻刀村|刀匠村|柱训练|无限城|立志|篇章';
+  const arcPattern = new RegExp(`(.+?)((${knownArcs})篇)$`);
+  const arcMatch = normalizedQuery.match(arcPattern);
+
+  if (arcMatch && !normalizedQuery.includes(' ')) {
+    const mainTitle = arcMatch[1]; // 结果：鬼灭之刃
+    const arcName = arcMatch[2];   // 结果：柱训练篇
+  
+    // 确保主标题有意义（长度 >= 2），避免拆分单字
+    if (mainTitle.length >= 2) {
+      const arcSpaced = `${mainTitle} ${arcName}`;
+      if (!searchQueries.includes(arcSpaced)) {
+        searchQueries.push(arcSpaced);
+      }
+    }
   }
 
   const collapsedQuery = normalizedQuery.replace(/\s+/g, '');
