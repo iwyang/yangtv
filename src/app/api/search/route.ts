@@ -78,6 +78,35 @@ export async function GET(request: NextRequest) {
   // 准备搜索关键词列表
   const searchQueries = [normalizedQuery];
   
+  // ✨ 新增：处理冒号逻辑 (去冒号、副标题提取)
+  const colonRegex = /[:：]/;
+  if (colonRegex.test(normalizedQuery)) {
+    const parts = normalizedQuery.split(colonRegex).map(p => p.trim());
+    if (parts.length >= 2) {
+      const mainTitle = parts[0];
+      const subTitle = parts[1];
+
+      // 1. 添加空格分隔版本 (例如: "凡人修仙传 仙界篇")
+      const spaced = `${mainTitle} ${subTitle}`;
+      if (!searchQueries.includes(spaced)) searchQueries.push(spaced);
+
+      // 2. 添加紧密连接版本 (例如: "凡人修仙传仙界篇")
+      const combined = `${mainTitle}${subTitle}`;
+      if (!searchQueries.includes(combined)) searchQueries.push(combined);
+
+      // 3. 添加仅副标题 (如果长度 >= 2)
+      if (subTitle.length >= 2 && !searchQueries.includes(subTitle)) {
+        searchQueries.push(subTitle);
+      }
+
+      // 4. 符号互换版本 (如果是中文冒号则补一个英文冒号版，反之亦然)
+      const swapped = normalizedQuery.includes(':') 
+        ? normalizedQuery.replace(':', '：') 
+        : normalizedQuery.replace('：', ':');
+      if (!searchQueries.includes(swapped)) searchQueries.push(swapped);
+    }
+  }
+  
   // 新增：处理“第n季/部”自动加空格逻辑，支持从“剑来第二季”生成“剑来 第二季”
   const seasonRegex = /(.+?)(第[0-9一二三四五六七八九十]+[季部])/;
   const match = normalizedQuery.match(seasonRegex);

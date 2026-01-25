@@ -209,6 +209,14 @@ function SearchPageClient() {
     const relevantResults = searchResults.filter((item) => {
       const title = item.title.toLowerCase();
       const titleNoSpace = title.replace(/\s+/g, '');
+	  
+	// ✨ 新增：冒号子项匹配
+    const colonRegex = /[:：]/;
+    if (colonRegex.test(query)) {
+      const parts = query.split(colonRegex).map(p => p.trim().toLowerCase()).filter(p => p.length >= 2);
+      // 只要结果标题包含冒号前后的主要部分，就保留在聚合结果中
+      if (parts.some(part => title.includes(part))) return true;
+    }
 
       // 包含完整关键词 (检查原词和转换后的词)
       if (

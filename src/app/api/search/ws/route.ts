@@ -85,6 +85,31 @@ export async function GET(request: NextRequest) {
   // 准备搜索关键词列表
   const searchQueries = [normalizedQuery];
   
+  // ✨ 新增：处理冒号逻辑
+  const colonRegex = /[:：]/;
+  if (colonRegex.test(normalizedQuery)) {
+    const parts = normalizedQuery.split(colonRegex).map(p => p.trim());
+    if (parts.length >= 2) {
+      const mainTitle = parts[0];
+      const subTitle = parts[1];
+      
+      const spaced = `${mainTitle} ${subTitle}`;
+      if (!searchQueries.includes(spaced)) searchQueries.push(spaced);
+
+      const combined = `${mainTitle}${subTitle}`;
+      if (!searchQueries.includes(combined)) searchQueries.push(combined);
+
+      if (subTitle.length >= 2 && !searchQueries.includes(subTitle)) {
+        searchQueries.push(subTitle);
+      }
+
+      const swapped = normalizedQuery.includes(':') 
+        ? normalizedQuery.replace(':', '：') 
+        : normalizedQuery.replace('：', ':');
+      if (!searchQueries.includes(swapped)) searchQueries.push(swapped);
+    }
+  }
+  
   // 新增：处理“第n季/部”自动加空格逻辑，支持从“剑来第二季”生成“剑来 第二季”
   const seasonRegex = /(.+?)(第[0-9一二三四五六七八九十]+[季部])/;
   const match = normalizedQuery.match(seasonRegex);

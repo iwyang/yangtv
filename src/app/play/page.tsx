@@ -753,77 +753,76 @@ function PlayPageClient() {
     };
     const fetchSourcesData = async (query: string): Promise<SearchResult[]> => {
       try {
-		const response = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`);
-		if (!response.ok) throw new Error('搜索失败');
-		const data = await response.json();
-		const rawResults = data.results || [];
-		
-		// 1. 预处理：获取清洗后的主标题
-		const mainTitle = (videoTitleRef.current || '').trim().replace(/\s+/g, '').toLowerCase();
-		const searchType = searchParams.get('stype') || searchParams.get('type') || 'vod';
-		
-		// ★★★ 修改这里：统计众数逻辑前增加判断 ★★★
-		if (searchType === 'movie') {
-		  baseEpisodeCountRef.current = 1; // 如果是电影，强制基准集数为1
-		  } else {
-		// 2. 【核心】统计众数：找出标题完全一致的源，看大家公认是多少集
-		const perfectMatches = rawResults.filter((r: SearchResult) =>
-		  r.title.trim().replace(/\s+/g, '').toLowerCase() === mainTitle
-	    );
-		
-		if (perfectMatches.length > 0) {
-		  const counts: Record<number, number> = {};
-		  perfectMatches.forEach((r: any) => {
-			const len = r.episodes?.length || 0;
-			if (len > 0) counts[len] = (counts[len] || 0) + 1;
-		  });
-		  
-		  let modeCount = 0;
-		  let maxFreq = 0;
-		  for (const [count, freq] of Object.entries(counts)) {
-			if (freq > maxFreq) {
-			  maxFreq = freq;
-			  modeCount = parseInt(count);
-			}
-		  }
-		  baseEpisodeCountRef.current = modeCount; // 锁定基准集数
-		 }
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`);
+        if (!response.ok) throw new Error('搜索失败');
+        const data = await response.json();
+        const rawResults = data.results || [];
+        
+        // 1. 预处理：获取清洗后的主标题（去除所有空格和冒号）
+        const mainTitle = (videoTitleRef.current || '').trim().toLowerCase();
+        const mainTitleClean = mainTitle.replace(/[:：\s+]/g, '');
+        const searchType = searchParams.get('stype') || searchParams.get('type') || 'vod';
+        
+        // 2. 统计众数逻辑
+        if (searchType === 'movie') {
+          baseEpisodeCountRef.current = 1;
+        } else {
+          const perfectMatches = rawResults.filter((r: SearchResult) => {
+            const rTitleClean = r.title.trim().toLowerCase().replace(/[:：\s+]/g, '');
+            return rTitleClean === mainTitleClean;
+          });
+          
+          if (perfectMatches.length > 0) {
+            const counts: Record<number, number> = {};
+            perfectMatches.forEach((r: any) => {
+              const len = r.episodes?.length || 0;
+              if (len > 0) counts[len] = (counts[len] || 0) + 1;
+            });
+            
+            let modeCount = 0;
+            let maxFreq = 0;
+            for (const [count, freq] of Object.entries(counts)) {
+              if (freq > maxFreq) {
+                maxFreq = freq;
+                modeCount = parseInt(count);
+              }
+            }
+            baseEpisodeCountRef.current = modeCount;
+          }
         }		 
-		
-		// 3. 【核心】执行过滤
-		const results = rawResults.filter((result: SearchResult) => {
-		  if (!result.title) return false;
-		  
-		  const sourceTitleClean = result.title.trim().replace(/\s+/g, '').toLowerCase();
+        
+        // 3. ✨ 执行增强后的过滤逻辑
+        const results = rawResults.filter((result: SearchResult) => {
+          if (!result.title) return false;
+          
+          const sourceTitle = result.title.trim().toLowerCase();
+          const sourceTitleClean = sourceTitle.replace(/[:：\s+]/g, '');
           const episodeCount = result.episodes?.length ?? 0;
-		  const baseCount = baseEpisodeCountRef.current; // 获取众数基准
-         
-		  // ★ 条件 A：必须以主标题开头
-		  if (!sourceTitleClean.startsWith(mainTitle)) return false;
-		  
-		  // ★ 条件 B：电影硬拦截（搜电影时，超过 6 集的电视剧直接不显示）
-		  if (searchType === 'movie') {
-			if (episodeCount > 5) return false; // 102集猫和老鼠会死在这里
-		  } else {
-			// 电视剧模式：执行 30% 误差屏蔽逻辑
-			// [新增] 只有在大家公认的集数(baseCount)有意义时(如>6集)才开启强力过滤
-			if (baseCount > 6) {
-			  const diff = Math.abs(episodeCount - baseCount);
-			  // [新增] 超过 30% 误差直接屏蔽返回 false
-			  if (diff > baseCount * 0.3) {
-				console.log(`屏蔽误差源: ${result.title} (当前${episodeCount}集, 预期约${baseCount}集)`);
-				return false;
-			  }
-			}
-		  }
-		  
-		  // ★ 条件 C：年份匹配
-		  const yearMatch = videoYearRef.current
-		    ? result.year?.toString().toLowerCase() === videoYearRef.current.toString().toLowerCase()
-			: true;
-			
-		  return yearMatch;		    
-		});
+          const baseCount = baseEpisodeCountRef.current;
+
+          // ★ 条件 A：标题匹配（去除冒号后，互相包含即可，不再死守 startsWith）
+          const isTitleMatch = sourceTitleClean.includes(mainTitleClean) || 
+                               mainTitleClean.includes(sourceTitleClean);
+          if (!isTitleMatch) return false;
+          
+          // ★ 条件 B：电影/电视剧集数拦截
+          if (searchType === 'movie') {
+            if (episodeCount > 5) return false;
+          } else {
+            if (baseCount > 6) {
+              const diff = Math.abs(episodeCount - baseCount);
+              if (diff > baseCount * 0.3) return false;
+            }
+          }
+          
+          // ★ 条件 C：年份匹配
+          const yearMatch = videoYearRef.current
+            ? result.year?.toString().toLowerCase() === videoYearRef.current.toString().toLowerCase()
+            : true;
+            
+          return yearMatch;		    
+        });
+
         setAvailableSources(results);
         return results;
       } catch (err) {
