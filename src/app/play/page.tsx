@@ -791,27 +791,39 @@ function PlayPageClient() {
           }
         }		 
         
-        // 3. ✨ 执行增强后的过滤逻辑
+        // 3. ✨ 执行增强后的过滤逻辑 (支持前缀匹配与后缀剥离)
         const results = rawResults.filter((result: SearchResult) => {
           if (!result.title) return false;
           
           const sourceTitle = result.title.trim().toLowerCase();
-          const sourceTitleClean = sourceTitle.replace(/[:：\s+]/g, '');
-          const episodeCount = result.episodes?.length ?? 0;
-          const baseCount = baseEpisodeCountRef.current;
+          const mainTitle = (videoTitleRef.current || '').trim().toLowerCase();
 
-          // ★ 条件 A：标题匹配（去除冒号后，互相包含即可，不再死守 startsWith）
-          const isTitleMatch = sourceTitleClean.includes(mainTitleClean) || 
-                               mainTitleClean.includes(sourceTitleClean);
+          // 定义后缀剥离正则：移除年份、语言版本、括号等干扰项
+          const suffixRegex = /(国语|粤语|国语版|粤语版|普通话版|(\(粤语\))|(\d{4}年?))$/;
+
+          // 清洗逻辑：去除冒号、空格，并剥离后缀
+          // 这样 "捕风追影粤语" 和 "捕风追影" 都会变成 "捕风追影"
+          const cleanSource = sourceTitle.replace(/[:：\s+]/g, '').replace(suffixRegex, '');
+          const cleanMain = mainTitle.replace(/[:：\s+]/g, '').replace(suffixRegex, '');
+
+          // ★ 条件 A：标题匹配（核心改进）
+          // 只要清洗后的源标题包含清洗后的搜索主旨，或反之，即视为匹配
+          // 效果：搜索 "捕风追影粤语" 能够匹配 "捕风追影2"、"捕风追影前传" 等
+          const isTitleMatch = cleanSource.includes(cleanMain) || cleanMain.includes(cleanSource);
+          
           if (!isTitleMatch) return false;
           
+          const episodeCount = result.episodes?.length ?? 0;
+          const baseCount = baseEpisodeCountRef.current;
+          const searchType = searchParams.get('stype') || searchParams.get('type') || 'vod';
+
           // ★ 条件 B：电影/电视剧集数拦截
           if (searchType === 'movie') {
-            if (episodeCount > 5) return false;
+            if (episodeCount > 5) return false; // 电影集数通常不应过多
           } else {
             if (baseCount > 6) {
               const diff = Math.abs(episodeCount - baseCount);
-              if (diff > baseCount * 0.3) return false;
+              if (diff > baseCount * 0.3) return false; // 剧集数量偏差超过 30% 则拦截
             }
           }
           

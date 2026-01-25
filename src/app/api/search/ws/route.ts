@@ -135,6 +135,18 @@ export async function GET(request: NextRequest) {
       }
     }
   }
+  
+  //3.新增：后缀剥离与前缀提取逻辑
+  // 匹配：(核心主标题) + (年份/语言/版本后缀)
+  const metaSuffixRegex = /(.+?)(国语|粤语|国语版|粤语版|普通话版|(\(粤语\))|(\d{4}年?))$/;
+  const metaMatch = normalizedQuery.match(metaSuffixRegex);
+
+  if (metaMatch) {
+    const coreTitle = metaMatch[1].trim(); // 得到：捕风追影
+    if (coreTitle.length >= 2 && !searchQueries.includes(coreTitle)) {
+      searchQueries.push(coreTitle); // 将最核心的词加入搜索，以获取所有相关结果
+    }
+  }
 
   const collapsedQuery = normalizedQuery.replace(/\s+/g, '');
   if (collapsedQuery !== normalizedQuery && !searchQueries.includes(collapsedQuery)) {
