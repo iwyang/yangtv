@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
   
   //3.新增：后缀剥离与前缀提取逻辑
   // 匹配：(核心主标题) + (年份/语言/版本后缀)
-  const metaSuffixRegex = /(.+?)((?:\(|（)?(?:国语|粤语|普通话)(?:版)?(?:\)|）)?|(?:\(|（)?\d{4}年?(?:\)|）)?)$/;
+  const metaSuffixRegex = /(.+?)((?:\(|（)?(?:国语|粤语|普通话|原声|双语)(?:版)?(?:\)|）)?|(?:\(|（)?\d{4}年?(?:\)|）)?)$/;
   const metaMatch = normalizedQuery.match(metaSuffixRegex);
 
   if (metaMatch) {
