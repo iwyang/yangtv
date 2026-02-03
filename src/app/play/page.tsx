@@ -807,9 +807,9 @@ function PlayPageClient() {
           const cleanMain = mainTitle.replace(/[:：\s+]/g, '').replace(suffixRegex, '');
 
           // ★ 条件 A：标题匹配（核心改进）
-          // 只要清洗后的源标题包含清洗后的搜索主旨，或反之，即视为匹配
-          // 效果：搜索 "捕风追影粤语" 能够匹配 "捕风追影2"、"捕风追影前传" 等
-          const isTitleMatch = cleanSource.includes(cleanMain) || cleanMain.includes(cleanSource);
+          // ★ 修改为：标题开头匹配 (startsWith)
+          // 解决 "疯狂动物城" 匹配到 "构建疯狂动物城" 的问题
+          const isTitleMatch = cleanSource.startsWith(cleanMain) || cleanMain.startsWith(cleanSource);
           
           if (!isTitleMatch) return false;
           
