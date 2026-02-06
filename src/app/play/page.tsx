@@ -861,6 +861,8 @@ function PlayPageClient() {
       );
 
       let sourcesInfo = await fetchSourcesData(searchTitle || videoTitle);
+      
+      // 【逻辑 1】如果结果里没有当前指定的源，尝试单独获取并“合并”而不是“覆盖”
       if (
         currentSource &&
         currentId &&
@@ -868,46 +870,138 @@ function PlayPageClient() {
           (source) => source.source === currentSource && source.id === currentId
         )
       ) {
-        sourcesInfo = await fetchSourceDetail(currentSource, currentId);
-      }
-      if (sourcesInfo.length === 0) {
-        setError('未找到匹配结果');
-        setLoading(false);
-        return;
+        // 使用中间变量接收，如果有数据则追加到列表中
+        const specificSource = await fetchSourceDetail(currentSource, currentId);
+        if (specificSource && specificSource.length > 0) {
+           sourcesInfo = [...sourcesInfo, ...specificSource];
+        }
       }
 
-      let detailData: SearchResult = sourcesInfo[0];
+      let detailData: SearchResult | undefined = sourcesInfo[0];
+      
+      // 【逻辑 2】引入标志位，判断指定源是否真正可用
+      let isSpecifiedSourceValid = false;
+
       // 指定源和id且无需优选
       if (currentSource && currentId && !needPreferRef.current) {
         const target = sourcesInfo.find(
           (source) => source.source === currentSource && source.id === currentId
         );
-        if (target) {
+        
+        // 增加检查：源必须存在，且集数列表不能为空
+        if (target && target.episodes && target.episodes.length > 0) {
           detailData = target;
+          isSpecifiedSourceValid = true;
         } else {
-          setError('未找到匹配结果');
-          setLoading(false);
-          return;
+          // 关键点：如果不匹配或源无效，不直接报错，而是打印警告并允许流程继续
+          console.warn('指定源无效或无播放地址，尝试自动优选其他源');
         }
       }
 
-      // 修改优选的触发逻辑，实现有指定源时的异步非阻塞调用
+      // -----------------------------------------------------------------------
+      // 自愈功能模块 (Self-Healing)
+      // -----------------------------------------------------------------------
+
+      // 【场景 1】：指定源失效，且全网无替代源 -> 彻底清理死链
+      if (!isSpecifiedSourceValid && (!sourcesInfo || sourcesInfo.length === 0)) {
+        if (currentSource && currentId) {
+            // 1. 清理收藏
+            isFavorited(currentSource, currentId).then(isFav => {
+                if (isFav) {
+                    deleteFavorite(currentSource, currentId);
+                    setFavorited(false);
+                }
+            });
+            // 2. 清理播放记录
+            deletePlayRecord(currentSource, currentId);
+            
+            showToast('该资源已失效且无替代，已自动清理相关记录', 'error');
+        }
+        setError('未找到匹配结果');
+        setLoading(false);
+        return;
+      }
+      
+      // 确保 detailData 不为空 (兜底)
+      if (!detailData) { 
+         detailData = sourcesInfo[0];
+      }
+
+      // 修改优选的触发逻辑
       if (optimizationEnabled) {
-        // 分支 A：无指定源，或者 URL 明确要求优选 (?prefer=true)
-		if (!currentSource || !currentId || needPreferRef.current) {
-		  setLoadingStage('preferring');
-		  setLoadingMessage('⚡ 正在优选最佳播放源...');
-		  // 这种情况下需要同步等待测速，以起播最快的源
-		  detailData = await preferBestSource(sourcesInfo);
-		}
-		// 分支 B：有指定源，执行“无感知优选”模式
-		else {
-		  console.log('检测到指定源，进入后台静默测速模式...');
-		  // 【关键】直接调用，不使用 await，不显示加载动画，不阻塞起播逻辑
-		  preferBestSource(sourcesInfo).catch(err => console.error("后台测速异常:", err));
-		  // detailData 此时已经是通过 URL 参数锁定的指定源了，直接进入下一步起播
-		}
-	   }
+        // 分支 A：无指定源，或者 URL 明确要求优选 (?prefer=true)，或者指定源无效触发了降级
+        if (!isSpecifiedSourceValid || needPreferRef.current) {
+          setLoadingStage('preferring');
+          setLoadingMessage(
+            !isSpecifiedSourceValid && currentSource 
+              ? '⚠️ 原线路失效，正在自动修复播放记录...' 
+              : '⚡ 正在优选最佳播放源...'
+          );
+          
+          // 这种情况下需要同步等待测速，以起播最快的源
+          detailData = await preferBestSource(sourcesInfo);
+        }
+        // 分支 B：有指定源且有效，执行“无感知优选”模式
+        else {
+          console.log('检测到指定源，进入后台静默测速模式...');
+          preferBestSource(sourcesInfo).catch(err => console.error("后台测速异常:", err));
+        }
+      }
+
+      // 【场景 2】：原指定源失效，但找到了新源 (detailData) -> 迁移数据
+      if (!isSpecifiedSourceValid && currentSource && currentId && detailData) {
+          const oldSource = currentSource;
+          const oldId = currentId;
+          const newDetail = detailData; // 闭包捕获新源信息
+
+          // A. 收藏自愈 (Favorites Healing)
+          isFavorited(oldSource, oldId).then(async (isFav) => {
+              if (isFav) {
+                  console.log(`[收藏自愈] ${oldSource} -> ${newDetail.source}`);
+                  await deleteFavorite(oldSource, oldId);
+                  await saveFavorite(newDetail.source, newDetail.id, {
+                    title: newDetail.title || videoTitleRef.current,
+                    source_name: newDetail.source_name,
+                    year: newDetail.year,
+                    cover: newDetail.poster,
+                    total_episodes: newDetail.episodes.length,
+                    save_time: Date.now(),
+                    search_title: searchTitle || videoTitleRef.current,
+                  });
+                  setFavorited(true); // 强制更新 UI 状态
+                  showToast('已自动修复失效的收藏', 'success');
+              }
+          });
+
+          // B. 播放记录自愈 (History Healing)
+          getAllPlayRecords().then(async (allRecords) => {
+              const oldKey = generateStorageKey(oldSource, oldId);
+              const oldRecord = allRecords[oldKey];
+
+              if (oldRecord) {
+                  console.log(`[播放记录自愈] ${oldSource} -> ${newDetail.source}`);
+                  
+                  // 1. 删除旧记录
+                  await deletePlayRecord(oldSource, oldId);
+
+                  // 2. 存入新记录 (继承旧记录的进度 play_time)
+                  // 【修正】已移除会导致报错的 source 和 id 字段
+                  await savePlayRecord(newDetail.source, newDetail.id, {
+                      ...oldRecord, // 展开旧记录所有字段
+                      source_name: newDetail.source_name,
+                      cover: newDetail.poster || oldRecord.cover,
+                      // 更新保存时间，使其排到最前
+                      save_time: Date.now() 
+                  });
+
+                  // 3. 告诉当前播放器继承进度
+                  if (oldRecord.play_time > 0) {
+                      resumeTimeRef.current = oldRecord.play_time;
+                      console.log('已继承观看进度:', formatTime(oldRecord.play_time));
+                  }
+              }
+          });
+      }
 
       console.log(detailData.source, detailData.id);
 
