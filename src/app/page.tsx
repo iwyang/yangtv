@@ -19,7 +19,6 @@ import { DoubanItem } from '@/lib/types';
 // --- Component Imports ---
 import CapsuleSwitch from '@/components/CapsuleSwitch';
 import ContinueWatching from '@/components/ContinueWatching';
-import DecoTVFooterCard from '@/components/DecoTVFooterCard';
 import PageLayout from '@/components/PageLayout';
 import ScrollableRow from '@/components/ScrollableRow';
 import { useSite } from '@/components/SiteProvider';
@@ -47,7 +46,7 @@ function HomeClient() {
   const [hotAnimes, setHotAnimes] = useState<DoubanItem[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const { siteName, announcement } = useSite();
+  const { announcement } = useSite();
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [favoriteItems, setFavoriteItems] = useState<FavoriteItem[]>([]);
 
@@ -133,26 +132,9 @@ function HomeClient() {
 
   return (
     <PageLayout>
-      {/* Visual Header Section */}
-      <div className="relative pt-20 pb-10 sm:pt-32 sm:pb-16 overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-75 h-75 sm:w-150 sm:h-150 bg-purple-500/20 rounded-full blur-[80px] sm:blur-[120px] -z-10 pointer-events-none animate-pulse" />
-        <div className="flex flex-col items-center justify-center text-center px-4">
-          <div className="relative group">
-            <h1 className="text-6xl sm:text-8xl font-black tracking-tighter deco-brand drop-shadow-2xl select-none transition-transform duration-500 group-hover:scale-105">
-              {siteName || 'DecoTV'}
-            </h1>
-            <div className="absolute -inset-8 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 blur-2xl -z-10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          </div>
-          <div className="mt-8 animate-fade-in-up">
-            <div className="inline-flex items-center gap-3 px-6 py-2.5 rounded-full bg-white/50 dark:bg-black/30 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-lg">
-              <span className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-100">发现</span>
-              <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
-              <span className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-100">收藏</span>
-              <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
-              <span className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-100">继续观看</span>
-            </div>
-          </div>
-        </div>
+      {/* 视觉头部 - 已清空 Logo 和标签内容 */}
+      <div className="relative pt-12 pb-6 sm:pt-16 sm:pb-8 overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-75 h-75 sm:w-150 sm:h-150 bg-purple-500/10 rounded-full blur-[80px] -z-10 pointer-events-none animate-pulse" />
       </div>
 
       <div className="px-2 sm:px-10 py-4 sm:py-8">
@@ -173,7 +155,7 @@ function HomeClient() {
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">我的收藏夹</h2>
                 {favoriteItems.length > 0 && (
                   <button 
-                    className="text-sm font-medium text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 transition-colors"
+                    className="text-sm font-medium text-gray-500 hover:text-purple-600 dark:text-gray-400 transition-colors"
                     onClick={async () => { 
                       if(confirm('确定清空所有收藏记录吗？')) { 
                         await clearAllFavorites(); 
@@ -274,8 +256,8 @@ function HomeClient() {
                   ))}
                 </ScrollableRow>
               </section>
-
-              <DecoTVFooterCard />
+              
+              {/* 尾部：已删除 DecoTVFooterCard */}
             </>
           )}
         </div>
@@ -283,10 +265,11 @@ function HomeClient() {
 
       {/* --- Announcement Modal --- */}
       {announcement && showAnnouncement && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl dark:bg-gray-900 animate-in zoom-in-95 duration-300">
             <div className="flex justify-between items-start mb-4">
-              <h3 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-pink-400 to-indigo-500 border-b-2 border-purple-400 pb-1">
+              {/* 修复后的标题：移除渐变，改用稳固的紫色样式 */}
+              <h3 className="text-2xl font-bold text-purple-600 dark:text-purple-400 border-b-2 border-purple-400 pb-1">
                 系统公告
               </h3>
               <button 
@@ -299,8 +282,8 @@ function HomeClient() {
               </button>
             </div>
             <div className="mb-6">
-              <div className="relative overflow-hidden rounded-lg p-4 bg-gradient-to-r from-purple-50 via-pink-50 to-indigo-50 dark:from-purple-900/20 dark:via-pink-900/20 dark:to-indigo-900/20 shadow-inner">
-                <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-purple-500 to-indigo-500" />
+              <div className="relative overflow-hidden rounded-lg p-4 bg-purple-50 dark:bg-purple-900/20 shadow-inner">
+                <div className="absolute inset-y-0 left-0 w-1 bg-purple-500" />
                 <p className="ml-2 text-gray-700 dark:text-gray-200 leading-relaxed font-medium whitespace-pre-wrap">
                   {announcement}
                 </p>
@@ -308,7 +291,7 @@ function HomeClient() {
             </div>
             <button
               onClick={() => handleCloseAnnouncement(announcement)}
-              className="w-full rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 py-3 text-white font-bold shadow-lg hover:opacity-90 active:scale-95 transition-all"
+              className="w-full rounded-lg bg-purple-600 py-3 text-white font-bold shadow-lg hover:bg-purple-700 active:scale-95 transition-all"
             >
               我知道了
             </button>
@@ -321,7 +304,7 @@ function HomeClient() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-gray-500">加载中...</div>}>
       <HomeClient />
     </Suspense>
   );
